@@ -56,7 +56,6 @@ print(qc_x.draw())
 print(qc_y.draw())
 
 """
-num_vars = 0
 
 def get_Clauses(name):
     f = open(name)
@@ -71,8 +70,6 @@ def get_Clauses(name):
             if line_split[0] == "p":
                 #Number of bits
                 num_variables = int(line_split[2])
-                global num_vars
-                num_vars = num_variables
                 #Number of clauses
                 num_clauses = int(line_split[3])
             elif line_split[0] != "c":
@@ -165,12 +162,12 @@ for i in range(10):
 
     #Constructing separator, quantum circuit
     separator = get_Separator(clauses, v, c, gamma)
-    q = QuantumRegister(2 * num_vars)
-    cr = ClassicalRegister(2 * num_vars)
+    q = QuantumRegister(v + c)
+    cr = ClassicalRegister(v + c)
     qc = QuantumCircuit(q, cr)
 
     #Hadamards
-    for i in range(2 * num_vars):
+    for i in range(v + c):
         qc.h(i)
 
     #Repeatedly appending MixSep
@@ -178,7 +175,7 @@ for i in range(10):
         #Separator
         qc.append(separator, q)
         #Mixer
-        for i in range(2 * num_vars):
+        for i in range(v + c):
             qc.rx(2 * beta, i)
     qc.measure_all()
 
@@ -189,7 +186,7 @@ for i in range(10):
 
     #Update max score
     for key, val in answer.items():
-        score = float(get_score(key[num_vars:2 * num_vars]))
+        score = float(get_score(key[v:2 * v]))
         if max_score is None or score > max_score:
             max_score = score
 

@@ -56,6 +56,7 @@ print(qc_x.draw())
 print(qc_y.draw())
 
 """
+num_vars = 0
 
 def get_Clauses(name):
     f = open(name)
@@ -70,6 +71,8 @@ def get_Clauses(name):
             if line_split[0] == "p":
                 #Number of bits
                 num_variables = int(line_split[2])
+                global num_vars
+                num_vars = num_variables
                 #Number of clauses
                 num_clauses = int(line_split[3])
             elif line_split[0] != "c":
@@ -117,7 +120,6 @@ def get_Separator(clauses, v, c, gamma):
             qc.append(custom_gamma, [v + clause_index, target])
         qc.barrier(list(range(v + c)))
         clause_index += 1
-    display(qc.draw("mpl"))
     qc = RemoveBarriers()(qc)
     U_Sep = qc.to_gate()
     U_Sep.name = "Usep"
@@ -128,38 +130,10 @@ clauses = []
 v = 0
 c = 0
 clauses, v, c = get_Clauses("instructions.txt")
-print(clauses, v, c)
-gamma = np.pi / 6
-beta = np.pi / 6
-separator = get_Separator(clauses, v, c, gamma)
-print(separator)
 
-q = QuantumRegister(6)
-c = ClassicalRegister(6)
-qc = QuantumCircuit(q, c)
-for i in range(6):
-    qc.h(i)
+gamma = None
+beta = None
 
-for i in range(100):
-    qc.append(separator, q)
-    for i in range(6):
-        qc.rx(math.pi / 3, i)
-
-qc.measure_all()
-
-
-#print(qc.draw())
-
-aer_sim = Aer.get_backend('aer_simulator')
-shots = 1
-t_qpe = transpile(qc, aer_sim)
-qobj = assemble(t_qpe, shots=shots)
-results = aer_sim.run(qobj).result()
-answer = results.get_counts()
-
-print(answer)
-
-print(clauses)
 
 def get_literal_set(bitstring):
     literal_set = set()
@@ -182,4 +156,41 @@ def get_score(bitstring):
                 break
     return score
 
-print(get_score("010"))
+max_score = None
+
+for i in range(10):
+    #Randomly picking (gamma, beta) in [0, 2pi] x [0, pi]
+    gamma = random.uniform(0, 1) * 2 * math.pi
+    beta = random.uniform(0, 1) * math.pi
+
+    #Constructing separator, quantum circuit
+    separator = get_Separator(clauses, v, c, gamma)
+    q = QuantumRegister(2 * num_vars)
+    cr = ClassicalRegister(2 * num_vars)
+    qc = QuantumCircuit(q, cr)
+
+    #Hadamards
+    for i in range(2 * num_vars):
+        qc.h(i)
+
+    #Repeatedly appending MixSep
+    for i in range(5):
+        #Separator
+        qc.append(separator, q)
+        #Mixer
+        for i in range(2 * num_vars):
+            qc.rx(2 * beta, i)
+    qc.measure_all()
+
+    #Run the program
+    aer_sim = Aer.get_backend('aer_simulator')
+    shots = 1
+    answer = aer_sim.run(assemble(transpile(qc, aer_sim), shots=shots)).result().get_counts()
+
+    #Update max score
+    for key, val in answer.items():
+        score = float(get_score(key[num_vars:2 * num_vars]))
+        if max_score is None or score > max_score:
+            max_score = score
+
+print(max_score)
